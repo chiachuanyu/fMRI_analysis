@@ -1,0 +1,81 @@
+#!/bin/tcsh -xef
+
+# to execute via tcsh: 
+#   tcsh -xef make_T1_mask_intersection |& tee output.make_T1_mask_intersection
+
+# Make a list of subjects
+set rawPath = "/orange/amandaelton/MARA_pilot_resting_raw"
+set anaPath = "/blue/amandaelton/ch.yu/MARA_resting_group_analysis"
+
+cd $rawPath
+# ls -d MARAP?? > $anaPath/subjList.txt
+cd $anaPath
+
+mkdir -p maskIntersection
+set sessions = ("x.ses-1" "x.ses-2" "y.ses-1" "y.ses-2")
+
+# Loop over subjects
+foreach subj (`cat subjList.txt`)
+	echo ${subj}
+    
+    # Loop over sessions
+    foreach session ($sessions)
+        set sessionDir = "$rawPath/${subj}/subject_results/${session}.results"
+        
+        if ( -d "$sessionDir" ) then
+            echo "$subj | $session, copying mask_group.??.ses-?+tlrc"
+
+			3dcalc -a "$sessionDir/mask_group+tlrc." -expr a -prefix "maskIntersection/mask_group_${subj}_${session}.nii"
+        else
+            echo "Subject: $subj | Session: $session missing, skipping."
+        endif
+    end
+end
+
+# Make a group T1 mask
+3dmask_tool -input maskIntersection/mask_group_MARAP*_*ses-*.nii -overwrite -prefix T1_mask_intersection+tlrc -union
+
+# Remove all the individual T1 data
+rm -r maskIntersection
+
+
+mkdir -p maskIntersection
+set sessions = ("x.ses-1" "x.ses-2" "y.ses-1" "y.ses-2")
+
+# Loop over subjects
+foreach subj (`cat subjList.txt`)
+	echo ${subj}
+    
+    # Loop over sessions
+    foreach session ($sessions)
+        set sessionDir = "$rawPath/${subj}/subject_results/${session}.results"
+        if ( -d "$sessionDir" ) then
+            echo "$subj | $session, copying *pve_1.nii.gz"
+
+			# Make individual GM mask with probability .05
+			3dcalc -a "$sessionDir/*_pve_1.nii.gz" -expr 'step(a-0.05)' -prefix maskIntersection/${subj}_${session}_0.05_gm
+        else
+            echo "Subject: $subj | Session: $session missing, skipping."
+        endif
+    end
+end
+
+# Combine all gm masks into a 4D file, with the 4th dimension being nth subject
+3dTcat -prefix maskIntersection/gm_mask_allSubject.nii maskIntersection/*_0.05_gm*
+
+3dTstat -prefix maskIntersection/gm_mask_group_prob -mean maskIntersection/gm_mask_allSubject.nii
+
+# Make a group T1 mask with the voxels that 50% of the subjects have gm
+3dcalc -overwrite -a maskIntersection/gm_mask_group_prob+tlrc -expr 'step(a-0.5)' -prefix gm_mask_group
+
+# Dilate and erode by 2-3 voxels to fill in holes
+#3dmask_tool -input maskIntersection/gm_mask_group+tlrc -overwrite -prefix gm_mask_group.dilate \
+#                  -dilate_input 2 -2
+
+# Add Harvard Oxford atlas' thalamus and brainstem ROIs
+3dcalc -a gm_mask_group+tlrc -b harvardoxford-subcortical_prob_Brain-Stem_resample.nii.gz \
+-c harvardoxford-subcortical_prob_Left_Thalamus_resample.nii.gz -d harvardoxford-subcortical_prob_Right_Thalamus_resample.nii.gz \
+-expr '(a+(b/b)+(c/c)+(d/d))/(a+(b/b)+(c/c)+(d/d))' -prefix gm_mask_group -overwrite
+
+# Remove all the individual T1 data
+rm -r maskIntersection

@@ -1,0 +1,133 @@
+#!/bin/bash
+#SBATCH --job-name=REML_array
+#SBATCH --account=amandaelton
+#SBATCH --qos=amandaelton
+#SBATCH --output=reml_logs/REML_%A_%a.out
+#SBATCH --error=reml_logs/REML_%A_%a.err
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=5
+#SBATCH --mem=40gb
+#SBATCH --time=02:00:00
+#SBATCH --array=1-69%2
+
+subj=$(sed -n "${SLURM_ARRAY_TASK_ID}p" /blue/amandaelton/ch.yu/BYTE/subject_results/group.sst_batch/folder.txt)
+
+resultDir=/blue/amandaelton/ch.yu/BYTE/subject_results/group.sst_batch/${subj}.results
+# resultDir=$(echo /blue/amandaelton/ch.yu/BYTE/subject_results/group.sst_batch/${subj}.results*)
+
+submitDir=$PWD/reml_logs
+
+if [ -d "$resultDir" ]; then
+    cd $resultDir
+    echo "Running 3dREMLfit for ${subj}"
+    3dREMLfit -matrix X.xmat.1D \
+    -input "pb04.${subj}.r01.scale+tlrc.HEAD pb04.${subj}.r02.scale+tlrc.HEAD" \
+    -fout -tout -Rbuck stats.${subj}_REML -Rvar stats.${subj}_REMLvar \
+    -GOFORIT 4 -Rfitts fitts.${subj}_REML -Rerrts errts.${subj}_REML -verb -overwrite
+else
+    echo "${subj} has file(s) missing, skipping."
+fi
+
+mv "${submitDir}/REML_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out" "${submitDir}/REML_${SLURM_ARRAY_JOB_ID}_${subj}.out"
+mv "${submitDir}/REML_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.err" "${submitDir}/REML_${SLURM_ARRAY_JOB_ID}_${subj}.err"
+
+# 3dDeconvolve -input pb04.BYTE03.r01.scale+tlrc.HEAD pb04.BYTE03.r02.scale+tlrc.HEAD -censor motion_BYTE03_censor.1D -ortvec mot_demean.r01.1D mot_demean_r01 -ortvec mot_demean.r02.1D mot_demean_r02 -ortvec mot_deriv.r01.1D mot_deriv_r01 -ortvec mot_deriv.r02.1D mot_deriv_r02 -ortvec mot_demean_square_r01.1D mot_demean_square_r01 -ortvec mot_demean_square_r02.1D mot_demean_square_r02 -ortvec mot_deriv_square_r01.1D mot_deriv_square_r01 -ortvec mot_deriv_square_r02.1D mot_deriv_square_r02 -ortvec psv_csf.rall.1D psv_csf.rall -ortvec psv_wm.rall.1D psv_wm.rall -polort 5 -num_stimts 14 -stim_times 1 stimuli/BYTE03_sst_time_negative_ss.1D SPMG1 -stim_label 1 neg_ss -stim_times 2 stimuli/BYTE03_sst_time_negative_fs.1D SPMG1 -stim_label 2 neg_fs -stim_times 3 stimuli/BYTE03_sst_time_negative_pssgo.1D SPMG1 -stim_label 3 neg_pssgo -stim_times 4 stimuli/BYTE03_sst_time_negative_pfsgo.1D SPMG1 -stim_label 4 neg_pfsgo -stim_times 5 stimuli/BYTE03_sst_time_negative_sgo.1D SPMG1 -stim_label 5 neg_sgo -stim_times 6 stimuli/BYTE03_sst_time_negative_fgo.1D SPMG1 -stim_label 6 neg_fgo -stim_times 7 stimuli/BYTE03_sst_time_negative_miss.1D SPMG1 -stim_label 7 neg_miss -stim_times 8 stimuli/BYTE03_sst_time_neutral_ss.1D SPMG1 -stim_label 8 neu_ss -stim_times 9 stimuli/BYTE03_sst_time_neutral_fs.1D SPMG1 -stim_label 9 neu_fs -stim_times 10 stimuli/BYTE03_sst_time_neutral_pssgo.1D SPMG1 -stim_label 10 neu_pssgo -stim_times 11 stimuli/BYTE03_sst_time_neutral_pfsgo.1D SPMG1 -stim_label 11 neu_pfsgo -stim_times 12 stimuli/BYTE03_sst_time_neutral_sgo.1D SPMG1 -stim_label 12 neu_sgo -stim_times 13 stimuli/BYTE03_sst_time_neutral_fgo.1D SPMG1 -stim_label 13 neu_fgo -stim_times 14 stimuli/BYTE03_sst_time_neutral_miss.1D SPMG1 -stim_label 14 neu_miss -jobs 5 -GOFORIT 4 -gltsym 'SYM: neg_ss -neg_sgo' -glt_label 1 neg_ss_sgo -gltsym 'SYM: neg_fs -neg_sgo' -glt_label 2 neg_fs_sgo -gltsym 'SYM: neg_ss -neg_fs' -glt_label 3 neg_ss_fs -gltsym 'SYM: neu_ss -neu_sgo' -glt_label 4 neu_ss_sgo -gltsym 'SYM: neu_fs -neu_sgo' -glt_label 5 neu_fs_sgo -gltsym 'SYM: neu_ss -neu_fs' -glt_label 6 neu_ss_fs -fout -tout -x1D X.xmat.1D -xjpeg X.jpg -x1D_uncensored X.nocensor.xmat.1D -fitts fitts.BYTE03 -errts errts.BYTE03 -bucket stats.BYTE03
+
+# cd /orange/amandaelton/BYTE_raw
+# ls -d BYTE?? > subjList.txt
+# mv subjList.txt /blue/amandaelton/ch.yu/BYTE/timing
+# cd /blue/amandaelton/ch.yu/BYTE/subject_results/group.sst_batch
+
+# foreach subj (`cat /blue/amandaelton/ch.yu/BYTE/timing/subjList.txt`)
+	# echo ${subj}
+	# set resultDir = /blue/amandaelton/ch.yu/BYTE/subject_results/group.sst_batch/${subj}.results
+		# if (-d "$resultDir") then
+			# cd resultDir
+			# echo "Rumming 3dDeconvolve for ${subj}"
+			# 3dDeconvolve -input pb04.${subj}.r*.scale+tlrc.HEAD                  \
+			# -censor motion_${subj}_censor.1D                                     \
+			# -ortvec mot_demean.r01.1D mot_demean_r01                             \
+			# -ortvec mot_demean.r02.1D mot_demean_r02                             \
+			# -ortvec mot_deriv.r01.1D mot_deriv_r01                               \
+			# -ortvec mot_deriv.r02.1D mot_deriv_r02                               \
+			# -ortvec mot_demean_square_r01.1D mot_demean_square_r01               \
+			# -ortvec mot_demean_square_r02.1D mot_demean_square_r02               \
+			# -ortvec mot_deriv_square_r01.1D mot_deriv_square_r01                 \
+			# -ortvec mot_deriv_square_r02.1D mot_deriv_square_r02                 \
+			# -ortvec psv_csf.rall.1D psv_csf.rall                                 \
+			# -ortvec psv_wm.rall.1D psv_wm.rall                                   \
+			# -polort 5                                                            \
+			# -num_stimts 14                                                       \
+			# -stim_times 1 stimuli/${subj}_sst_time_negative_ss.1D 'SPMG1'         \
+			# -stim_label 1 neg_ss                                                 \
+			# -stim_times 2 stimuli/${subj}_sst_time_negative_fs.1D 'SPMG1'         \
+			# -stim_label 2 neg_fs                                                 \
+			# -stim_times 3 stimuli/${subj}_sst_time_negative_pssgo.1D 'SPMG1'      \
+			# -stim_label 3 neg_pssgo                                              \
+			# -stim_times 4 stimuli/${subj}_sst_time_negative_pfsgo.1D 'SPMG1'      \
+			# -stim_label 4 neg_pfsgo                                              \
+			# -stim_times 5 stimuli/${subj}_sst_time_negative_sgo.1D 'SPMG1'        \
+			# -stim_label 5 neg_sgo                                                \
+			# -stim_times 6 stimuli/${subj}_sst_time_negative_fgo.1D 'SPMG1'        \
+			# -stim_label 6 neg_fgo                                                \
+			# -stim_times 7 stimuli/${subj}_sst_time_negative_miss.1D 'SPMG1'       \
+			# -stim_label 7 neg_miss                                               \
+			# -stim_times 8 stimuli/${subj}_sst_time_neutral_ss.1D 'SPMG1'          \
+			# -stim_label 8 neu_ss                                                 \
+			# -stim_times 9 stimuli/${subj}_sst_time_neutral_fs.1D 'SPMG1'          \
+			# -stim_label 9 neu_fs                                                 \
+			# -stim_times 10 stimuli/${subj}_sst_time_neutral_pssgo.1D 'SPMG1'      \
+			# -stim_label 10 neu_pssgo                                             \
+			# -stim_times 11 stimuli/${subj}_sst_time_neutral_pfsgo.1D 'SPMG1'      \
+			# -stim_label 11 neu_pfsgo                                             \
+			# -stim_times 12 stimuli/${subj}_sst_time_neutral_sgo.1D 'SPMG1'        \
+			# -stim_label 12 neu_sgo                                               \
+			# -stim_times 13 stimuli/${subj}_sst_time_neutral_fgo.1D 'SPMG1'        \
+			# -stim_label 13 neu_fgo                                               \
+			# -stim_times 14 stimuli/${subj}_sst_time_neutral_miss.1D 'SPMG1'       \
+			# -stim_label 14 neu_miss                                              \
+			# -jobs 5                                                              \
+			# -GOFORIT 8                                                           \
+			# -gltsym 'SYM: neg_ss -neg_sgo'                                       \
+			# -glt_label 1 neg_ss_sgo                                              \
+			# -gltsym 'SYM: neg_fs -neg_sgo'                                       \
+			# -glt_label 2 neg_fs_sgo                                              \
+			# -gltsym 'SYM: neg_ss -neg_fs'                                        \
+			# -glt_label 3 neg_ss_fs                                               \
+			# -gltsym 'SYM: neu_ss -neu_sgo'                                       \
+			# -glt_label 4 neu_ss_sgo                                              \
+			# -gltsym 'SYM: neu_fs -neu_sgo'                                       \
+			# -glt_label 5 neu_fs_sgo                                              \
+			# -gltsym 'SYM: neu_ss -neu_fs'                                        \
+			# -glt_label 6 neu_ss_fs                                               \
+			# -fout -tout -x1D X.xmat.1D -xjpeg X.jpg                              \
+			# -x1D_uncensored X.nocensor.xmat.1D                                   \
+			# -fitts fitts.${subj}                                                   \
+			# -errts errts.${subj}                                                 \
+			# -bucket stats.${subj}
+		# else
+			# echo "${subj} has file(s) missing, skipping."
+		# endif
+	# end
+	# cd /blue/amandaelton/ch.yu/BYTE/subject_results/group.sst_batch
+# end
+
+
+
+# foreach subj (`cat /blue/amandaelton/ch.yu/BYTE/timing/subjList.txt`)
+# for subj in BYTE*/; do
+	# echo ${subj}
+	# set resultDir = /blue/amandaelton/ch.yu/BYTE/subject_results/group.sst_batch/${subj}.results
+		# if (-d "$resultDir") then
+		       	# cd $resultDir
+			# echo "Rumming 3dREMLfit for ${subj}"
+			# 3dREMLfit -matrix X.xmat.1D \
+			# -input "pb04.${subj}.r01.scale+tlrc.HEAD pb04.${subj}.r02.scale+tlrc.HEAD" \
+			# -fout -tout -Rbuck stats.${subj}_REML -Rvar stats.${subj}_REMLvar \
+			# -GOFORIT 4 -Rfitts fitts.${subj}_REML -Rerrts errts.${subj}_REML -verb $*
+		# else
+			# echo "${subj} has file(s) missing, skipping."
+		# endif
+	# end
+	# cd /blue/amandaelton/ch.yu/BYTE/subject_results/group.sst_batch
+# end
